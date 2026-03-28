@@ -321,14 +321,7 @@ def admin_logs(current_user):
 def health():
     return json_response(0, 'ok', {'status': 'ok'})
 
-from password_change import setup_password_change
-setup_password_change(api_bp, db, User, login_required, json_response)
-
-app.register_blueprint(api_bp)
-
-with app.app_context():
-    db.create_all()
-
+# ==================== 新增导出路由，放在蓝图注册之前 ====================
 @api_bp.route('/note/export', methods=['GET'])
 @login_required
 def note_export(current_user):
@@ -345,6 +338,15 @@ def note_export(current_user):
         return response
     else:
         return json_response(4003, 'Unsupported format', status=400)
-    
+
+# ==================== 导入外部模块，注册蓝图，创建数据库 ====================
+from password_change import setup_password_change
+setup_password_change(api_bp, db, User, login_required, json_response)
+
+app.register_blueprint(api_bp)
+
+with app.app_context():
+    db.create_all()
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
