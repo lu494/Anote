@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, make_response, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
+import markdown
 from datetime import datetime
 from weasyprint import HTML
 
@@ -327,12 +328,13 @@ def health():
 @login_required
 def note_export(current_user):
     note_id = request.args.get('noteId')
-    # 查询笔记（仅当前用户自己的笔记）
     note = Note.query.filter_by(id=note_id, userId=current_user.id).first()
     if not note:
         return json_response(4003, 'Note not found', status=404)
 
-    # 构建 HTML 内容（可自定义样式）
+    # 将 Markdown 内容转换为 HTML
+    html_body = markdown.markdown(note.content, extensions=['extra', 'codehilite', 'toc'])
+
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -340,20 +342,68 @@ def note_export(current_user):
         <meta charset="utf-8">
         <title>{note.title}</title>
         <style>
-            body {{ font-family: 'DejaVu Sans', 'Noto Sans CJK SC', sans-serif; margin: 2em; line-height: 1.5; }}
-            h1 {{ color: #333; }}
-            pre {{ background: #f4f4f4; padding: 0.5em; overflow-x: auto; }}
-            code {{ background: #f4f4f4; padding: 0.2em 0.4em; }}
-            blockquote {{ border-left: 4px solid #ccc; margin-left: 0; padding-left: 1em; color: #666; }}
+            body {{
+                font-family: 'DejaVu Sans', 'Noto Sans CJK SC', '宋体', SimHei, sans-serif;
+                margin: 1.5cm;
+                line-height: 1.6;
+                color: #333;
+            }}
+            h1, h2, h3, h4, h5, h6 {{
+                margin-top: 1.2em;
+                margin-bottom: 0.6em;
+                font-weight: bold;
+            }}
+            h1 {{ font-size: 24pt; }}
+            h2 {{ font-size: 20pt; }}
+            h3 {{ font-size: 18pt; }}
+            p {{ margin: 0 0 0.8em 0; text-align: justify; }}
+            ul, ol {{ margin: 0 0 1em 1.5em; padding: 0; }}
+            li {{ margin-bottom: 0.3em; }}
+            pre {{
+                background: #f5f5f5;
+                padding: 0.5em;
+                border-radius: 4px;
+                overflow-x: auto;
+                font-family: monospace;
+                font-size: 10pt;
+                border: 1px solid #ddd;
+                margin: 1em 0;
+            }}
+            code {{
+                background: #f5f5f5;
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+                font-family: monospace;
+                font-size: 0.9em;
+            }}
+            blockquote {{
+                border-left: 4px solid #ccc;
+                margin: 0.5em 0;
+                padding-left: 1em;
+                color: #666;
+                font-style: italic;
+            }}
+            table {{
+                border-collapse: collapse;
+                width: 100%;
+                margin: 1em 0;
+            }}
+            th, td {{
+                border: 1px solid #ccc;
+                padding: 0.4em 0.6em;
+                text-align: left;
+            }}
+            th {{ background: #f0f0f0; }}
+            img {{ max-width: 100%; height: auto; }}
+            .page-break {{ page-break-before: always; }}
         </style>
     </head>
     <body>
         <h1>{note.title}</h1>
-        <div>{note.content}</div>
+        <div>{html_body}</div>
     </body>
     </html>
     """
-    # 生成 PDF
     pdf = HTML(string=html_content).write_pdf()
     response = make_response(pdf)
     response.headers['Content-Type'] = 'application/pdf'
