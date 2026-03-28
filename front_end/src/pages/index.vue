@@ -1,12 +1,12 @@
 <template>
   <v-container>
-    <!-- 搜索栏 -->
+    <!-- 搜索栏（支持全文搜索） -->
     <v-row class="mb-4" justify="center">
       <v-col cols="12" md="12">
         <v-text-field
           v-model="keyword"
           clearable
-          label="搜索笔记标题"
+          label="搜索笔记（标题/内容）"
           prepend-icon="mdi-magnify"
           @keyup.enter="loadNotes"
         >
@@ -25,14 +25,20 @@
         </v-card>
       </v-col>
 
-      <!-- 搜索结果笔记卡片 -->
+      <!-- 笔记卡片列表 -->
       <template v-if="notesFiltered.length > 0">
         <v-col v-for="note in notesFiltered" :key="note.noteId" cols="12" md="4">
-          <v-card class="hover-card note-card" @click="openNote(note.noteId)">
-            <v-card-title class="title-text">{{ note.title }}</v-card-title>
-            <v-card-text class="content-text">
+          <v-card class="hover-card note-card">
+            <v-card-title class="title-text" @click="openNote(note.noteId)">{{ note.title }}</v-card-title>
+            <v-card-text class="content-text" @click="openNote(note.noteId)">
               {{ note.content ? (note.content.length > 60 ? note.content.slice(0, 60) + '...' : note.content) : '' }}
             </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn icon @click.stop="exportNote(note.noteId)">
+                <v-icon>mdi-download</v-icon>
+              </v-btn>
+            </v-card-actions>
           </v-card>
         </v-col>
       </template>
@@ -110,6 +116,11 @@
     router.push('/note/create')
   }
 
+  // 导出笔记（Markdown格式）
+  function exportNote (id: number) {
+    window.open(`/api/note/export?noteId=${id}&format=md`, '_blank')
+  }
+
   onMounted(() => {
     loadNotes()
   })
@@ -138,6 +149,11 @@
 }
 .note-card {
   padding: 8px;
+  cursor: default; /* 卡片本身不设置手型，内部标题和内容区域单独设置 */
+}
+.note-card .title-text,
+.note-card .content-text {
+  cursor: pointer;
 }
 .no-note-card {
   font-weight: bold;
@@ -159,5 +175,8 @@
 }
 .v-card-title.justify-center {
   justify-content: center;
+}
+.v-card-actions {
+  justify-content: flex-end;
 }
 </style>

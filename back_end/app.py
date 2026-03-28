@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from flask import Flask, request, jsonify, make_response, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -184,7 +185,7 @@ def note_list(current_user):
     tags = request.args.getlist('tags')
     query = Note.query.filter_by(userId=current_user.id)
     if keyword:
-        query = query.filter(Note.title.contains(keyword))
+        query = query.filter(or_(Note.title.contains(keyword), Note.content.contains(keyword)))
     if category:
         query = query.filter_by(category=category)
     notes = []
@@ -328,5 +329,22 @@ app.register_blueprint(api_bp)
 with app.app_context():
     db.create_all()
 
+@api_bp.route('/note/export', methods=['GET'])
+@login_required
+def note_export(current_user):
+    note_id = request.args.get('noteId')
+    fmt = request.args.get('format', 'md').lower()
+    note = Note.query.filter_by(id=note_id, userId=current_user.id).first()
+    if not note:
+        return json_response(4003, 'Note not found', status=404)
+    if fmt == 'md':
+        content = f"# {note.title}\n\n{note.content}"
+        response = make_response(content)
+        response.headers['Content-Type'] = 'text/markdown; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename=note_{note.id}.md'
+        return response
+    else:
+        return json_response(4003, 'Unsupported format', status=400)
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
