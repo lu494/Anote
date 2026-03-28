@@ -101,12 +101,11 @@
   }
 
   const notesFiltered = computed(() => {
-    return notes.value.filter(n => {
-      const matchesCategory = !noteStore.selectedCategory || n.category === noteStore.selectedCategory
-      const matchesKeyword = !keyword.value || n.title.includes(keyword.value)
-      return matchesCategory && matchesKeyword
-    })
+  return notes.value.filter(n => {
+    const matchesCategory = !noteStore.selectedCategory || n.category === noteStore.selectedCategory
+    return matchesCategory
   })
+})
 
   function openNote (id: number) {
     router.push(`/note/${id}`)
