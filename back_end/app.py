@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 from datetime import datetime
+from weasyprint import HTML
 
 app = Flask(__name__)
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -321,23 +322,43 @@ def admin_logs(current_user):
 def health():
     return json_response(0, 'ok', {'status': 'ok'})
 
-# ==================== 新增导出路由，放在蓝图注册之前 ====================
+# ==================== 导出路由，只支持 PDF ====================
 @api_bp.route('/note/export', methods=['GET'])
 @login_required
 def note_export(current_user):
     note_id = request.args.get('noteId')
-    fmt = request.args.get('format', 'md').lower()
+    # 查询笔记（仅当前用户自己的笔记）
     note = Note.query.filter_by(id=note_id, userId=current_user.id).first()
     if not note:
         return json_response(4003, 'Note not found', status=404)
-    if fmt == 'md':
-        content = f"# {note.title}\n\n{note.content}"
-        response = make_response(content)
-        response.headers['Content-Type'] = 'text/markdown; charset=utf-8'
-        response.headers['Content-Disposition'] = f'attachment; filename=note_{note.id}.md'
-        return response
-    else:
-        return json_response(4003, 'Unsupported format', status=400)
+
+    # 构建 HTML 内容（可自定义样式）
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>{note.title}</title>
+        <style>
+            body {{ font-family: 'DejaVu Sans', 'Noto Sans CJK SC', sans-serif; margin: 2em; line-height: 1.5; }}
+            h1 {{ color: #333; }}
+            pre {{ background: #f4f4f4; padding: 0.5em; overflow-x: auto; }}
+            code {{ background: #f4f4f4; padding: 0.2em 0.4em; }}
+            blockquote {{ border-left: 4px solid #ccc; margin-left: 0; padding-left: 1em; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <h1>{note.title}</h1>
+        <div>{note.content}</div>
+    </body>
+    </html>
+    """
+    # 生成 PDF
+    pdf = HTML(string=html_content).write_pdf()
+    response = make_response(pdf)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=note_{note.id}.pdf'
+    return response
 
 # ==================== 导入外部模块，注册蓝图，创建数据库 ====================
 from password_change import setup_password_change

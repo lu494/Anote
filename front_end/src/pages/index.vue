@@ -101,11 +101,11 @@
   }
 
   const notesFiltered = computed(() => {
-  return notes.value.filter(n => {
-    const matchesCategory = !noteStore.selectedCategory || n.category === noteStore.selectedCategory
-    return matchesCategory
+    return notes.value.filter(n => {
+      const matchesCategory = !noteStore.selectedCategory || n.category === noteStore.selectedCategory
+      return matchesCategory
+    })
   })
-})
 
   function openNote (id: number) {
     router.push(`/note/${id}`)
@@ -115,9 +115,45 @@
     router.push('/note/create')
   }
 
-  // 导出笔记（Markdown格式）
-  function exportNote (id: number) {
-    window.open(`/api/note/export?noteId=${id}&format=md`, '_blank')
+  // 导出笔记为 PDF
+  async function exportNote (id: number) {
+    try {
+      const response = await axios.get('/note/export', {
+        params: { noteId: id, format: 'pdf' },
+        responseType: 'blob',   // 重要：以二进制流接收
+      })
+      // 从响应头获取文件名，如果不存在则构造
+      const contentDisposition = response.headers['content-disposition']
+      let filename = `note_${id}.pdf`
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/)
+        if (match) filename = match[1]
+      }
+      // 创建下载链接并触发点击
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      console.error('导出失败', error)
+      // 如果后端返回 JSON 错误，尝试解析
+      if (error.response && error.response.data) {
+        try {
+          // 注意：如果响应是 JSON，但 responseType 是 blob，需要先转为文本
+          const text = await error.response.data.text()
+          const errJson = JSON.parse(text)
+          alert(errJson.msg || '导出失败')
+        } catch {
+          alert('导出失败')
+        }
+      } else {
+        alert('导出失败')
+      }
+    }
   }
 
   onMounted(() => {
