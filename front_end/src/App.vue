@@ -2,7 +2,7 @@
   <v-app>
     <NavDrawer app :title="title" />
 
-    <v-main class="pt-0">
+    <v-main class="pt-16">
       <router-view />
       <v-btn
         v-show="showBackTop"
